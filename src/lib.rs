@@ -41,7 +41,7 @@ pub struct HttpClient {
     client: Box<dyn ReaderSource>,
     reader: Reader,
     range: Option<HttpRange>,
-    pos: usize,
+    pos: u64,
     stats: ReqStats,
 }
 
@@ -59,8 +59,8 @@ impl std::fmt::Debug for HttpClient {
 
 #[derive(Debug, Default)]
 struct ReqStats {
-    wasted_bytes: usize,
-    used_bytes: usize,
+    wasted_bytes: u64,
+    used_bytes: u64,
     req_count: usize,
 }
 
@@ -78,7 +78,7 @@ impl HttpClient {
     }
 
     //
-    pub async fn set_range(&mut self, range: Range<usize>) -> Result<()> {
+    pub async fn set_range(&mut self, range: Range<u64>) -> Result<()> {
         assert!(!range.is_empty());
         self.pos = range.start;
 
@@ -92,7 +92,7 @@ impl HttpClient {
     /// Advance client to `to_pos`, discarding any intermediate data, without fetching further data.
     ///
     /// `to_pos` must be within the current range and must not occur before the current position.
-    pub async fn fast_forward(&mut self, to_pos: usize) -> Result<()> {
+    pub async fn fast_forward(&mut self, to_pos: u64) -> Result<()> {
         assert!(to_pos >= self.pos, "can't rewind");
 
         let len = to_pos - self.pos;
@@ -188,7 +188,7 @@ impl HttpClient {
     ///  - not set (see [`set_range`])
     ///  - an open ended (RangeFrom) range, since it can't be extended
     ///  - not contiguous with the extension
-    pub async fn append_contiguous_range(&mut self, extension: Range<usize>) -> Result<()> {
+    pub async fn append_contiguous_range(&mut self, extension: Range<u64>) -> Result<()> {
         let Some(range) = &self.range else {
             panic!("must call set_range before you can extend a range");
         };
@@ -267,8 +267,8 @@ impl AsyncRead for HttpClient {
         let result = self.reader.as_mut().poll_read(cx, buf);
 
         let distance = buf.filled().len() - len_before;
-        self.pos += distance;
-        self.stats.used_bytes += distance;
+        self.pos += distance as u64;
+        self.stats.used_bytes += distance as u64;
         trace!("read {distance} bytes. New pos={pos}", pos = self.pos);
 
         result
@@ -277,9 +277,9 @@ impl AsyncRead for HttpClient {
 
 #[async_trait]
 trait ReaderSource: Sync + Send + std::fmt::Debug {
-    async fn get_byte_range(&self, range: Range<usize>) -> Result<Reader>;
+    async fn get_byte_range(&self, range: Range<u64>) -> Result<Reader>;
 
-    async fn get_byte_range_from(&self, range: RangeFrom<usize>) -> Result<Reader>;
+    async fn get_byte_range_from(&self, range: RangeFrom<u64>) -> Result<Reader>;
 
     fn boxed_clone(&self) -> Box<dyn ReaderSource>;
 }
@@ -330,12 +330,12 @@ impl ReqwestClient {
 
 #[async_trait]
 impl ReaderSource for ReqwestClient {
-    async fn get_byte_range(&self, range: Range<usize>) -> Result<Reader> {
+    async fn get_byte_range(&self, range: Range<u64>) -> Result<Reader> {
         let range_header = format!("bytes={}-{}", range.start, (range.end - 1));
         self.get_byte_range_with_header(&range_header).await
     }
 
-    async fn get_byte_range_from(&self, range: RangeFrom<usize>) -> Result<Reader> {
+    async fn get_byte_range_from(&self, range: RangeFrom<u64>) -> Result<Reader> {
         let range_header = format!("bytes={}-", range.start);
         self.get_byte_range_with_header(&range_header).await
     }

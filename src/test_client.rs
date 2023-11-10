@@ -5,13 +5,15 @@ use std::ops::{Range, RangeFrom};
 /// Helpful for tests
 #[async_trait]
 impl ReaderSource for Vec<u8> {
-    async fn get_byte_range(&self, range: Range<usize>) -> Result<Reader> {
-        let range_data = self[range].to_owned();
+    async fn get_byte_range(&self, range: Range<u64>) -> Result<Reader> {
+        let usize_range = range.start as usize..range.end as usize;
+        let range_data = self[usize_range].to_owned();
         Ok(Box::pin(std::io::Cursor::new(range_data)))
     }
 
-    async fn get_byte_range_from(&self, range: RangeFrom<usize>) -> Result<Reader> {
-        let range_data = self[range].to_owned();
+    async fn get_byte_range_from(&self, range: RangeFrom<u64>) -> Result<Reader> {
+        let usize_range = range.start as usize..;
+        let range_data = self[usize_range].to_owned();
         Ok(Box::pin(std::io::Cursor::new(range_data)))
     }
 

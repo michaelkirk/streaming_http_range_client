@@ -2,33 +2,33 @@ use core::ops::{Range, RangeFrom};
 
 #[derive(Debug, Clone)]
 pub enum HttpRange {
-    Range(Range<usize>),
-    RangeFrom(RangeFrom<usize>),
+    Range(Range<u64>),
+    RangeFrom(RangeFrom<u64>),
 }
 
 impl HttpRange {
-    pub fn start(&self) -> usize {
+    pub fn start(&self) -> u64 {
         match self {
             Self::Range(range) => range.start,
             Self::RangeFrom(range) => range.start,
         }
     }
 
-    pub fn end(&self) -> Option<usize> {
+    pub fn end(&self) -> Option<u64> {
         match self {
             Self::Range(range) => Some(range.end),
             Self::RangeFrom(_) => None,
         }
     }
 
-    pub fn with_end(self, end: Option<usize>) -> Self {
+    pub fn with_end(self, end: Option<u64>) -> Self {
         match end {
             Some(end) => Self::Range(self.start()..end),
             None => Self::RangeFrom(self.start()..),
         }
     }
 
-    pub fn split(&mut self, new_end: usize) -> Self {
+    pub fn split(&mut self, new_end: u64) -> Self {
         assert!(new_end > self.start());
         match self {
             Self::Range(range) => {
