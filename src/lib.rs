@@ -114,11 +114,12 @@ impl HttpClient {
     }
 
     /// Fast forwards to the beginning of range, fetching additional data if necessary.
-    pub async fn seek_to_range(&mut self, range: HttpRange) -> Result<()> {
+    pub async fn seek_to_range(&mut self, range: impl Into<HttpRange>) -> Result<()> {
         let Some(HttpRange::Range(existing_range)) = &mut self.range else {
             // TODO: Is there a reason *not* to support None or Some(HttpRange::RangeFrom)?
             panic!("can only fast forward from double ended range");
         };
+        let range = range.into();
         assert!(range.start() >= self.pos, "can't rewind");
         match range {
             HttpRange::Range(range) => {

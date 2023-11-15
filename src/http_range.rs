@@ -44,3 +44,15 @@ impl HttpRange {
         }
     }
 }
+
+impl From<Range<u64>> for HttpRange {
+    fn from(value: Range<u64>) -> Self {
+        Self::Range(value)
+    }
+}
+
+impl From<RangeFrom<u64>> for HttpRange {
+    fn from(value: RangeFrom<u64>) -> Self {
+        Self::RangeFrom(value)
+    }
+}
