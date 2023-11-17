@@ -81,8 +81,11 @@ impl HttpClient {
     pub async fn set_range(&mut self, range: Range<u64>) -> Result<()> {
         assert!(!range.is_empty());
         self.pos = range.start;
-
         self.stats.req_count += 1;
+        trace!(
+            "set_range {range:?}, request #{req_count}",
+            req_count = self.stats.req_count
+        );
         self.reader = self.client.get_byte_range(range.clone()).await?;
         self.range = Some(HttpRange::Range(range));
 
@@ -120,12 +123,13 @@ impl HttpClient {
             panic!("can only fast forward from double ended range");
         };
         let range = range.into();
+        trace!("seek_to_range: {range:?}");
         assert!(range.start() >= self.pos, "can't rewind");
         match range {
             HttpRange::Range(range) => {
                 if range.start == self.pos {
                     if range.end <= existing_range.end {
-                        trace!("nothing to do");
+                        trace!("already have this data, no new request will be made.");
                         Ok(())
                     } else {
                         self.append_contiguous_range(range).await
@@ -172,6 +176,10 @@ impl HttpClient {
         };
 
         self.stats.req_count += 1;
+        trace!(
+            "extend_to_end from {prev_range:?}, request #{req_count}",
+            req_count = self.stats.req_count
+        );
         let reader = self.client.get_byte_range_from(prev_range.end..).await?;
 
         let mut tmp = empty();
@@ -211,8 +219,9 @@ impl HttpClient {
             return Ok(());
         }
 
-        let uncovered_range = prev_range.end..extension.end;
         self.stats.req_count += 1;
+        let uncovered_range = prev_range.end..extension.end;
+        trace!("append_contiguous_range {extension:?}, previously uncovered_range: {uncovered_range:?}. request #{req_count}", req_count=self.stats.req_count);
         let reader = self.client.get_byte_range(uncovered_range.clone()).await?;
 
         let mut tmp = empty();
