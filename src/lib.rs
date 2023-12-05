@@ -106,7 +106,7 @@ impl HttpClient {
 
         let mut ff_reader = empty();
         std::mem::swap(&mut ff_reader, &mut self.reader);
-        let mut ff_reader = ff_reader.take(len as u64);
+        let mut ff_reader = ff_reader.take(len);
         tokio::io::copy(&mut ff_reader, &mut tokio::io::sink()).await?;
         let reader = ff_reader.into_inner();
         self.pos += len;
@@ -246,15 +246,13 @@ impl HttpClient {
         let mut old_reader = empty();
         std::mem::swap(&mut self.reader, &mut old_reader);
 
-        let child = Self {
+        Self {
             client: self.client.boxed_clone(),
             reader: old_reader,
             pos: self.pos,
             range: Some(after),
             stats: ReqStats::default(),
-        };
-
-        child
+        }
     }
 
     /// Does the client already encompass the given range?
