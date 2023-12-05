@@ -256,6 +256,29 @@ impl HttpClient {
 
         child
     }
+
+    /// Does the client already encompass the given range?
+    ///
+    /// Caveat: If the client's current Range has an explicit end, we assume any given open ended
+    /// `(123..)` Range goes beyond the current Range.
+    pub fn contains(&self, range: &HttpRange) -> bool {
+        let Some(current_range) = &self.range else {
+            return false;
+        };
+        if current_range.start() >= range.start() {
+            warn!("rewinding?");
+            return false;
+        }
+        let Some(current_end) = current_range.end() else {
+            return true;
+        };
+
+        let Some(range_end) = range.end() else {
+            return false;
+        };
+
+        current_end >= range_end
+    }
 }
 
 impl Drop for HttpClient {
