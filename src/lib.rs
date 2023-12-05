@@ -129,12 +129,13 @@ impl HttpClient {
             HttpRange::Range(range) => {
                 if range.start == self.pos {
                     if range.end <= existing_range.end {
-                        trace!("already have this data, no new request will be made.");
+                        trace!("Already at requested byte position and already have the requested data. No new request will be made.");
                         Ok(())
                     } else {
                         self.append_contiguous_range(range).await
                     }
                 } else if range.end <= existing_range.end {
+                    trace!("Fast forwarding to the requested byte position but already have the requested data. No new request will be made.");
                     self.fast_forward(range.start).await
                 } else if range.start > existing_range.end {
                     self.set_range(range).await
