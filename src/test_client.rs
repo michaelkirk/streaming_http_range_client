@@ -1,4 +1,4 @@
-use crate::{empty, HttpClient, Reader, ReaderSource, ReqStats, Result};
+use crate::{HttpClient, Reader, ReaderSource, ReqStats, Result};
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Range, RangeFrom};
@@ -12,7 +12,7 @@ impl Debug for ByteFormatter<'_> {
 }
 
 /// Helpful for tests
-#[async_trait]
+#[async_trait(?Send)]
 impl ReaderSource for LocalBytesClient {
     async fn get_byte_range(&self, mut range: Range<u64>) -> Result<Reader> {
         self.clamp_range(&mut range);
@@ -86,7 +86,7 @@ impl HttpClient {
             client: Box::new(LocalBytesClient {
                 bytes: data.to_vec(),
             }),
-            reader: empty(),
+            reader: crate::empty(),
             pos: 0,
             range: None,
             stats: ReqStats::default(),
