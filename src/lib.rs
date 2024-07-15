@@ -1,6 +1,5 @@
 mod error;
 mod http_range;
-#[cfg(test)]
 #[cfg(not(target_arch = "wasm32"))]
 mod test_client;
 

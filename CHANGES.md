@@ -1,3 +1,7 @@
+# v1.0.0 - 2024.07.14
+
+- External users can use test_client outside of `cfg(test)` builds.
+
 # v0.2.0 - 2024.07.14
 
 - Add support for the wasm32-unknown-unknown target.
