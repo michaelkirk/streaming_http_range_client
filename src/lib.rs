@@ -1,13 +1,26 @@
 mod error;
 mod http_range;
+#[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
 mod test_client;
+
+#[cfg(target_arch = "wasm32")]
+mod wasm_reader;
 
 use futures_util::TryStreamExt;
 use std::ops::{Range, RangeFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
-use tokio_util::io::StreamReader;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::io::ReadBuf;
+
+#[cfg(target_arch = "wasm32")]
+use futures_util::io as asyncio;
+
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::io as asyncio;
+
+use asyncio::{AsyncRead, AsyncReadExt};
 
 #[macro_use]
 extern crate log;
@@ -107,7 +120,7 @@ impl HttpClient {
         let mut ff_reader = empty();
         std::mem::swap(&mut ff_reader, &mut self.reader);
         let mut ff_reader = ff_reader.take(len);
-        tokio::io::copy(&mut ff_reader, &mut tokio::io::sink()).await?;
+        asyncio::copy(&mut ff_reader, &mut asyncio::sink()).await?;
         let reader = ff_reader.into_inner();
         self.pos += len;
         assert_eq!(self.pos, to_pos);
@@ -285,6 +298,32 @@ impl Drop for HttpClient {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl AsyncRead for HttpClient {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        assert!(
+            self.range.is_some(),
+            "must call set_range (and await) before attempting read"
+        );
+
+        let result = self.reader.as_mut().poll_read(cx, buf);
+        let mut length = 0;
+        if let Poll::Ready(Ok(successful_read)) = result {
+            length = successful_read;
+            self.pos += length as u64;
+            self.stats.used_bytes += length as u64;
+        }
+        trace!("read {length} bytes. New pos={pos}", pos = self.pos);
+
+        result
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 impl AsyncRead for HttpClient {
     fn poll_read(
         mut self: Pin<&mut Self>,
@@ -308,7 +347,7 @@ impl AsyncRead for HttpClient {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 trait ReaderSource: Sync + Send + std::fmt::Debug {
     async fn get_byte_range(&self, range: Range<u64>) -> Result<Reader>;
 
@@ -353,15 +392,28 @@ impl ReqwestClient {
                 status: status.as_u16(),
             });
         }
-        let bytes_stream = response
-            .bytes_stream()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
 
-        Ok(Box::pin(StreamReader::new(bytes_stream)))
+        #[cfg(target_arch = "wasm32")]
+        {
+            let bytes_stream = response
+                .bytes_stream()
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
+
+            let reader = wasm_reader::WasmReader::new(Box::new(bytes_stream));
+            Ok(Box::pin(reader))
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use tokio_util::io::StreamReader;
+            let bytes_stream = response
+                .bytes_stream()
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
+            Ok(Box::pin(StreamReader::new(bytes_stream)))
+        }
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl ReaderSource for ReqwestClient {
     async fn get_byte_range(&self, range: Range<u64>) -> Result<Reader> {
         let range_header = format!("bytes={}-{}", range.start, (range.end - 1));
@@ -378,10 +430,35 @@ impl ReaderSource for ReqwestClient {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 type Reader = Pin<Box<dyn AsyncRead + Sync + Send>>;
+#[cfg(target_arch = "wasm32")]
+type Reader = Pin<Box<dyn AsyncRead>>;
 
 pub(crate) fn empty() -> Reader {
-    Box::pin(std::io::Cursor::new(vec![]))
+    Box::pin(EmptyReader)
+}
+
+struct EmptyReader;
+#[cfg(not(target_arch = "wasm32"))]
+impl AsyncRead for EmptyReader {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+#[cfg(target_arch = "wasm32")]
+impl AsyncRead for EmptyReader {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
 }
 
 #[cfg(test)]

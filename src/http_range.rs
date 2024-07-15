@@ -29,7 +29,12 @@ impl HttpRange {
     }
 
     pub fn split(&mut self, new_end: u64) -> Self {
-        assert!(new_end > self.start());
+        assert!(
+            new_end > self.start(),
+            "new_end is before where we already start (rewinding?) new_end: {}, start: {}",
+            new_end,
+            self.start()
+        );
         match self {
             Self::Range(range) => {
                 assert!(new_end <= range.end);
