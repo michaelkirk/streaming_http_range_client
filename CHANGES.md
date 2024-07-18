@@ -1,3 +1,7 @@
+# v1.0.0 - 2024.07.18
+
+- Remove overzealous assert when calling `split_off` on a completed reader.
+
 # v1.0.0 - 2024.07.14
 
 - External users can use test_client outside of `cfg(test)` builds.
