@@ -9,7 +9,7 @@ description = "A client for ergonomically streaming HTTP Range requests"
 
 [dependencies]
 log = { version = "0.4.19" , default-features = false }
-reqwest = { version = "0.11.18", default-features = false, features = ["stream", "default-tls"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["stream", "http2", "rustls"] }
 futures-util = { version ="0.3.28" , default-features = false }
 tokio-util = { version = "0.7.11", default-features = false, features = ["io"] }
 async-trait = { version = "0.1.73", default-features = false }

@@ -1,3 +1,9 @@
+# Unreleased
+
+- Update to reqwest 0.13 with HTTP/2. Requests to a host share one HTTP/2
+  connection when the server negotiates it.
+- BREAKING: TLS uses rustls instead of the platform's native TLS library.
+
 # v1.0.0 - 2024.07.18
 
 - Remove overzealous assert when calling `split_off` on a completed reader.
