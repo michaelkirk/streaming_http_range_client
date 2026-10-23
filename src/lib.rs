@@ -26,6 +26,7 @@ extern crate log;
 
 pub use error::{Error, Result};
 pub use http_range::HttpRange;
+pub use reqwest;
 
 use async_trait::async_trait;
 
@@ -80,8 +81,16 @@ impl HttpClient {
     /// Create a new client. To get data from the client, call [`set_range`] and start reading
     /// from the client.
     pub fn new(url: &str) -> Self {
+        Self::with_client(reqwest::Client::new(), url)
+    }
+
+    /// Like [`Self::new`], but requests are made with `client`, e.g. to trust a custom certificate.
+    pub fn with_client(client: reqwest::Client, url: &str) -> Self {
         Self {
-            client: Box::new(ReqwestClient::new(url)),
+            client: Box::new(ReqwestClient {
+                client,
+                url: url.to_string(),
+            }),
             reader: empty(),
             pos: 0,
             range: None,
@@ -362,13 +371,6 @@ struct ReqwestClient {
 }
 
 impl ReqwestClient {
-    fn new(url: &str) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            url: url.to_string(),
-        }
-    }
-
     async fn get_byte_range_with_header(&self, range_header: &str) -> Result<Reader> {
         debug!("getting range: {range_header}");
 

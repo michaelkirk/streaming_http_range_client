@@ -2,6 +2,8 @@
 
 - Update to reqwest 0.13 with HTTP/2. Requests to a host share one HTTP/2
   connection when the server negotiates it.
+- Add `HttpClient::with_client` to make requests with a configured
+  `reqwest::Client`, which is re-exported.
 - BREAKING: TLS uses rustls instead of the platform's native TLS library.
 
 # v1.0.0 - 2024.07.18
